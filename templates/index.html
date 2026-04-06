@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OT/ICS Threat Dashboard — CISA Advisory Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #0a0c0f;
+      --bg2:       #0f1318;
+      --bg3:       #151b22;
+      --border:    #1e2a38;
+      --border2:   #243040;
+      --text:      #c8d8e8;
+      --text2:     #7a92a8;
+      --text3:     #4a6070;
+      --accent:    #00d4ff;
+      --critical:  #ff4444;
+      --high:      #ff8c00;
+      --medium:    #ffd700;
+      --low:       #44cc88;
+      --unknown:   #7a92a8;
+      --mono:      'JetBrains Mono', monospace;
+      --sans:      'IBM Plex Sans', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* Subtle scanline texture — gives the SOC terminal feel */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,212,255,0.012) 2px,
+        rgba(0,212,255,0.012) 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      border: 1.5px solid var(--accent);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .logo-icon::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    .logo-text {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+    }
+    .logo-sub {
+      font-size: 11px;
+      color: var(--text3);
+      font-family: var(--mono);
+    }
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--text3);
+    }
+    .live-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--low);
+      border-radius: 50%;
+      margin-right: 5px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .refresh-btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent);
+      background: none;
+      border: 1px solid var(--border2);
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .refresh-btn:hover { background: rgba(0,212,255,0.06); border-color: var(--accent); }
+
+    /* ── Stat cards ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      padding: 24px 0 20px;
+    }
+    .stat-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .stat-card:hover { border-color: var(--border2); }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--card-color);
+    }
+    .stat-label {
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--text3);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 28px;
+      font-family: var(--mono);
+      font-weight: 700;
+      color: var(--card-color);
+      line-height: 1;
+    }
+    .stat-card.total  { --card-color: var(--accent); }
+    .stat-card.crit   { --card-color: var(--critical); }
+    .stat-card.high   { --card-color: var(--high); }
+    .stat-card.medium { --card-color: var(--medium); }
+    .stat-card.low    { --card-color: var(--low); }
+
+    /* ── Filters ── */
+    .filters-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .filter-label {
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--text3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-right: 4px;
+    }
+    .filter-btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover { color: var(--text); border-color: #3a5068; }
+    .filter-btn.active { background: rgba(0,212,255,0.08); border-color: var(--accent); color: var(--accent); }
+    .filter-btn.sev-Critical.active { background: rgba(255,68,68,0.08); border-color: var(--critical); color: var(--critical); }
+    .filter-btn.sev-High.active { background: rgba(255,140,0,0.08); border-color: var(--high); color: var(--high); }
+    .filter-btn.sev-Medium.active { background: rgba(255,215,0,0.08); border-color: var(--medium); color: var(--medium); }
+    .filter-btn.sev-Low.active { background: rgba(68,204,136,0.08); border-color: var(--low); color: var(--low); }
+
+    .search-input {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 4px 10px;
+      width: 220px;
+      margin-left: auto;
+    }
+    .search-input::placeholder { color: var(--text3); }
+    .search-input:focus { outline: none; border-color: var(--accent); }
+
+    /* ── Advisory table ── */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg2);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead { background: var(--bg3); }
+    th {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text3);
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr.adv-row {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    tr.adv-row:hover { background: rgba(0,212,255,0.03); }
+
+    /* severity badge */
+    .sev-badge {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    .sev-Critical { background: rgba(255,68,68,0.12);  color: var(--critical); border: 1px solid rgba(255,68,68,0.25); }
+    .sev-High     { background: rgba(255,140,0,0.10);  color: var(--high);     border: 1px solid rgba(255,140,0,0.25); }
+    .sev-Medium   { background: rgba(255,215,0,0.08);  color: var(--medium);   border: 1px solid rgba(255,215,0,0.20); }
+    .sev-Low      { background: rgba(68,204,136,0.08); color: var(--low);      border: 1px solid rgba(68,204,136,0.20); }
+    .sev-Unknown  { background: rgba(122,146,168,0.08); color: var(--unknown);  border: 1px solid rgba(122,146,168,0.2); }
+
+    .vendor-text {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .title-text {
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.4;
+      max-width: 380px;
+    }
+    .cve-pill {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 9px;
+      background: rgba(0,212,255,0.06);
+      border: 1px solid rgba(0,212,255,0.15);
+      color: var(--text2);
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin: 1px 2px 1px 0;
+    }
+    .sector-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--text3);
+      margin-right: 4px;
+    }
+    .date-text {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text3);
+      white-space: nowrap;
+    }
+    .cvss-val {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* ── Loading / empty states ── */
+    .loading-state, .empty-state {
+      text-align: center;
+      padding: 60px 24px;
+      font-family: var(--mono);
+      color: var(--text3);
+    }
+    .loading-state::before {
+      content: '[ fetching CISA advisories... ]';
+      display: block;
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 40px;
+      padding: 20px 0;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text3);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* ── Result count ── */
+    .result-count {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text3);
+      padding: 0 0 10px;
+    }
+    .result-count span { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="wrap header-inner">
+    <div class="logo">
+      <div class="logo-icon"></div>
+      <div>
+        <div class="logo-text">OT/ICS THREAT MONITOR</div>
+        <div class="logo-sub">CISA ICS Advisory Dashboard</div>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span><span class="live-dot"></span>LIVE FEED</span>
+      <span id="last-updated">—</span>
+      <button class="refresh-btn" onclick="loadData()">↻ REFRESH</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- Stat cards -->
+  <div class="stats-row">
+    <div class="stat-card total">
+      <div class="stat-label">Total</div>
+      <div class="stat-value" id="stat-total">—</div>
+    </div>
+    <div class="stat-card crit">
+      <div class="stat-label">Critical</div>
+      <div class="stat-value" id="stat-critical">—</div>
+    </div>
+    <div class="stat-card high">
+      <div class="stat-label">High</div>
+      <div class="stat-value" id="stat-high">—</div>
+    </div>
+    <div class="stat-card medium">
+      <div class="stat-label">Medium</div>
+      <div class="stat-value" id="stat-medium">—</div>
+    </div>
+    <div class="stat-card low">
+      <div class="stat-label">Low / Unknown</div>
+      <div class="stat-value" id="stat-low">—</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <span class="filter-label">severity:</span>
+    <button class="filter-btn active" data-filter="severity" data-value="all" onclick="setFilter('severity','all',this)">ALL</button>
+    <button class="filter-btn sev-Critical" data-filter="severity" data-value="Critical" onclick="setFilter('severity','Critical',this)">CRITICAL</button>
+    <button class="filter-btn sev-High" data-filter="severity" data-value="High" onclick="setFilter('severity','High',this)">HIGH</button>
+    <button class="filter-btn sev-Medium" data-filter="severity" data-value="Medium" onclick="setFilter('severity','Medium',this)">MEDIUM</button>
+
+    <span class="filter-label" style="margin-left:12px">sector:</span>
+    <button class="filter-btn active" data-filter="sector" data-value="all" onclick="setFilter('sector','all',this)">ALL</button>
+    <button class="filter-btn" data-filter="sector" data-value="Energy" onclick="setFilter('sector','Energy',this)">ENERGY</button>
+    <button class="filter-btn" data-filter="sector" data-value="Manufacturing" onclick="setFilter('sector','Manufacturing',this)">MANUFACTURING</button>
+    <button class="filter-btn" data-filter="sector" data-value="Water" onclick="setFilter('sector','Water',this)">WATER</button>
+    <button class="filter-btn" data-filter="sector" data-value="Healthcare" onclick="setFilter('sector','Healthcare',this)">HEALTHCARE</button>
+
+    <input class="search-input" type="text" id="search-box" placeholder="search vendor, CVE, title..." oninput="renderTable()">
+  </div>
+
+  <div class="result-count" id="result-count"></div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Severity</th>
+          <th>CVSS</th>
+          <th>Vendor</th>
+          <th>Advisory Title</th>
+          <th>CVEs</th>
+          <th>Sector</th>
+          <th>Published</th>
+        </tr>
+      </thead>
+      <tbody id="advisory-tbody">
+        <tr><td colspan="7" class="loading-state"></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    <span>Data source: CISA ICS-CERT Advisories (cisa.gov) — updates every 30 minutes</span>
+    <span>Built by Harsh Asolkar · SOC Analyst · Shieldworkz</span>
+  </footer>
+
+</div>
+
+<script>
+  let allAdvisories = [];
+  let activeFilters = { severity: 'all', sector: 'all' };
+
+  async function loadData() {
+    try {
+      const res = await fetch('/api/advisories');
+      const data = await res.json();
+
+      allAdvisories = data.advisories || [];
+
+      // Update stat cards
+      document.getElementById('stat-total').textContent    = data.stats.total ?? '—';
+      document.getElementById('stat-critical').textContent = data.stats.Critical ?? 0;
+      document.getElementById('stat-high').textContent     = data.stats.High ?? 0;
+      document.getElementById('stat-medium').textContent   = data.stats.Medium ?? 0;
+      document.getElementById('stat-low').textContent      = (data.stats.Low ?? 0) + (data.stats.Unknown ?? 0);
+      document.getElementById('last-updated').textContent  = data.last_updated || '—';
+
+      renderTable();
+    } catch (err) {
+      document.getElementById('advisory-tbody').innerHTML =
+        `<tr><td colspan="7" class="empty-state">[ error loading advisories — ${err.message} ]</td></tr>`;
+    }
+  }
+
+  function setFilter(type, value, btn) {
+    activeFilters[type] = value;
+    // Update active button styling for this filter group
+    document.querySelectorAll(`[data-filter="${type}"]`).forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTable();
+  }
+
+  function renderTable() {
+    const search = document.getElementById('search-box').value.toLowerCase();
+
+    const filtered = allAdvisories.filter(adv => {
+      const sevMatch = activeFilters.severity === 'all' || adv.severity === activeFilters.severity;
+      const secMatch = activeFilters.sector === 'all' || (adv.sectors || []).includes(activeFilters.sector);
+      const searchMatch = !search ||
+        adv.title.toLowerCase().includes(search) ||
+        adv.vendor.toLowerCase().includes(search) ||
+        (adv.cves || []).some(c => c.toLowerCase().includes(search)) ||
+        (adv.sectors || []).some(s => s.toLowerCase().includes(search));
+      return sevMatch && secMatch && searchMatch;
+    });
+
+    document.getElementById('result-count').innerHTML =
+      `showing <span>${filtered.length}</span> of <span>${allAdvisories.length}</span> advisories`;
+
+    if (filtered.length === 0) {
+      document.getElementById('advisory-tbody').innerHTML =
+        `<tr><td colspan="7" class="empty-state">[ no advisories match current filters ]</td></tr>`;
+      return;
+    }
+
+    const rows = filtered.map(adv => {
+      const cvssColor = adv.cvss_score === null ? 'var(--text3)' :
+        adv.severity === 'Critical' ? 'var(--critical)' :
+        adv.severity === 'High'     ? 'var(--high)' :
+        adv.severity === 'Medium'   ? 'var(--medium)' : 'var(--low)';
+
+      const cvesHtml = adv.cves && adv.cves.length > 0
+        ? adv.cves.slice(0, 3).map(c => `<span class="cve-pill">${c}</span>`).join('') +
+          (adv.cves.length > 3 ? `<span class="cve-pill">+${adv.cves.length - 3}</span>` : '')
+        : '<span style="color:var(--text3);font-size:10px;font-family:var(--mono)">none listed</span>';
+
+      const sectorsHtml = (adv.sectors || []).slice(0, 2)
+        .map(s => `<span class="sector-tag">${s}</span>`).join('');
+
+      return `
+        <tr class="adv-row" onclick="window.open('${adv.link}', '_blank')">
+          <td><span class="sev-badge sev-${adv.severity}">${adv.severity.toUpperCase()}</span></td>
+          <td><span class="cvss-val" style="color:${cvssColor}">${adv.cvss_score !== null ? adv.cvss_score.toFixed(1) : '—'}</span></td>
+          <td><span class="vendor-text">${escHtml(adv.vendor)}</span></td>
+          <td><span class="title-text">${escHtml(adv.title)}</span></td>
+          <td>${cvesHtml}</td>
+          <td>${sectorsHtml}</td>
+          <td><span class="date-text">${adv.published}</span></td>
+        </tr>`;
+    });
+
+    document.getElementById('advisory-tbody').innerHTML = rows.join('');
+  }
+
+  function escHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+  }
+
+  // Load on page open
+  loadData();
+</script>
+
+</body>
+</html>
