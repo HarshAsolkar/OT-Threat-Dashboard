@@ -57,4 +57,4 @@ python app.py
 
 ---
 
-Built by [Harsh Asolkar](https://github.com/HarshAsolkar) — SOC Analyst · Shieldworkz
+Built by [Harsh Asolkar](https://github.com/HarshAsolkar) 
