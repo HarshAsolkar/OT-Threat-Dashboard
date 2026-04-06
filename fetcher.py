@@ -2,6 +2,30 @@ import feedparser
 import requests
 import re
 from datetime import datetime
+def fetch_cvss_from_nvd(cve_id):
+    """
+    Query the NVD API for a CVE's CVSS score.
+    NVD = National Vulnerability Database — the authoritative source
+    for CVSS scores. Free, no API key needed for basic use.
+    Rate limit: 5 requests per 30 seconds without a key.
+    """
+    try:
+        url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve_id}"
+        response = requests.get(url, timeout=8)
+        if response.status_code != 200:
+            return None
+        data = response.json()
+        vulns = data.get("vulnerabilities", [])
+        if not vulns:
+            return None
+        metrics = vulns[0]["cve"].get("metrics", {})
+        # Try CVSSv3.1 first, then v3.0, then v2
+        for key in ["cvssMetricV31", "cvssMetricV30", "cvssMetricV2"]:
+            if key in metrics:
+                return metrics[key][0]["cvssData"]["baseScore"]
+    except Exception:
+        return None
+    return None
 
 # CISA publishes two ICS advisory feeds — we pull both
 CISA_ICS_FEED = "https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml"
@@ -123,18 +147,21 @@ def parse_advisory(entry):
     summary = entry.get("summary", "")
     link = entry.get("link", "#")
 
-    # feedparser normalises dates into a 9-tuple struct_time
     published_raw = entry.get("published_parsed")
     if published_raw:
         published = datetime(*published_raw[:6]).strftime("%Y-%m-%d")
     else:
         published = "Unknown"
 
-    # Combine title + summary for text analysis (more context = better extraction)
     full_text = f"{title} {summary}"
 
     cves = extract_cves(full_text)
     cvss_score = extract_cvss_score(full_text)
+
+    # If RSS text didn't have a score, ask NVD directly for the first CVE
+    if cvss_score is None and cves:
+        cvss_score = fetch_cvss_from_nvd(cves[0])
+
     severity = score_to_severity(cvss_score)
     sectors = detect_sector(full_text)
     vendor = extract_vendor(title)
@@ -151,7 +178,6 @@ def parse_advisory(entry):
         "sectors": sectors,
         "summary_snippet": summary[:300] + "..." if len(summary) > 300 else summary,
     }
-
 
 def fetch_advisories(limit=50):
     """

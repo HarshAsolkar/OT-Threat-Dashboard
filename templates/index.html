@@ -3,561 +3,531 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>OT/ICS Threat Dashboard — CISA Advisory Monitor</title>
+  <title>OT/ICS Threat Monitor — CISA Advisory Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     :root {
-      --bg:        #0a0c0f;
-      --bg2:       #0f1318;
-      --bg3:       #151b22;
-      --border:    #1e2a38;
-      --border2:   #243040;
-      --text:      #c8d8e8;
-      --text2:     #7a92a8;
-      --text3:     #4a6070;
-      --accent:    #00d4ff;
-      --critical:  #ff4444;
-      --high:      #ff8c00;
-      --medium:    #ffd700;
-      --low:       #44cc88;
-      --unknown:   #7a92a8;
-      --mono:      'JetBrains Mono', monospace;
-      --sans:      'IBM Plex Sans', sans-serif;
+      --bg:       #080b0f;
+      --bg2:      #0d1117;
+      --bg3:      #131920;
+      --bg4:      #1a2332;
+      --border:   #1e2a38;
+      --border2:  #2a3d52;
+      --text:     #c8d8e8;
+      --text2:    #7a92a8;
+      --text3:    #4a6070;
+      --accent:   #00d4ff;
+      --critical: #ff4444;
+      --high:     #ff8c00;
+      --medium:   #ffd700;
+      --low:      #44cc88;
+      --unknown:  #5a7080;
+      --mono:     'JetBrains Mono', monospace;
+      --sans:     'IBM Plex Sans', sans-serif;
+      --panel-w:  420px;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--sans);
-      font-size: 14px;
-      line-height: 1.6;
-      min-height: 100vh;
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); font-size: 14px; line-height: 1.6;
+      min-height: 100vh; overflow-x: hidden;
     }
-
-    /* Subtle scanline texture — gives the SOC terminal feel */
     body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,212,255,0.012) 2px,
-        rgba(0,212,255,0.012) 4px
-      );
-      pointer-events: none;
-      z-index: 0;
+      content: ''; position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.010) 2px, rgba(0,212,255,0.010) 4px);
+      pointer-events: none; z-index: 0;
     }
+    .shell { display: flex; flex-direction: column; min-height: 100vh; position: relative; z-index: 1; }
 
-    .wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
-
-    /* ── Header ── */
+    /* header */
     header {
-      border-bottom: 1px solid var(--border);
-      padding: 16px 0;
-      background: var(--bg);
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      border-bottom: 1px solid var(--border); padding: 14px 24px;
+      background: rgba(8,11,15,0.95); backdrop-filter: blur(8px);
+      position: sticky; top: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
     }
-    .header-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .logo-icon {
-      width: 28px;
-      height: 28px;
-      border: 1.5px solid var(--accent);
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-    }
-    .logo-icon::after {
-      content: '';
-      width: 8px;
-      height: 8px;
-      background: var(--accent);
-      border-radius: 50%;
-      animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.8); }
-    }
-    .logo-text {
-      font-family: var(--mono);
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--accent);
-      letter-spacing: 0.05em;
-    }
-    .logo-sub {
-      font-size: 11px;
-      color: var(--text3);
-      font-family: var(--mono);
-    }
-    .header-meta {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      font-size: 11px;
-      font-family: var(--mono);
-      color: var(--text3);
-    }
-    .live-dot {
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      background: var(--low);
-      border-radius: 50%;
-      margin-right: 5px;
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-    .refresh-btn {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--accent);
-      background: none;
-      border: 1px solid var(--border2);
-      padding: 4px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .refresh-btn:hover { background: rgba(0,212,255,0.06); border-color: var(--accent); }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon { width:30px; height:30px; border:1.5px solid var(--accent); border-radius:5px; display:flex; align-items:center; justify-content:center; }
+    .logo-icon::after { content:''; width:8px; height:8px; background:var(--accent); border-radius:50%; animation:pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.75)} }
+    .logo-name { font-family:var(--mono); font-size:13px; font-weight:700; color:var(--accent); letter-spacing:.06em; }
+    .logo-sub  { font-family:var(--mono); font-size:10px; color:var(--text3); margin-top:1px; }
+    .header-right { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .live-pill { display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10px; color:var(--text2); background:var(--bg3); border:1px solid var(--border); border-radius:4px; padding:4px 10px; }
+    .live-dot  { width:6px; height:6px; background:var(--low); border-radius:50%; animation:pulse 1.5s ease-in-out infinite; }
+    .countdown { font-family:var(--mono); font-size:10px; color:var(--text3); }
+    .countdown span { color:var(--accent); }
+    .icon-btn  { font-family:var(--mono); font-size:11px; color:var(--text2); background:none; border:1px solid var(--border); border-radius:4px; padding:5px 10px; cursor:pointer; transition:all .15s; }
+    .icon-btn:hover { color:var(--accent); border-color:var(--accent); background:rgba(0,212,255,.05); }
 
-    /* ── Stat cards ── */
-    .stats-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 12px;
-      padding: 24px 0 20px;
-    }
-    .stat-card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 14px 16px;
-      position: relative;
-      overflow: hidden;
-      transition: border-color 0.2s;
-    }
-    .stat-card:hover { border-color: var(--border2); }
-    .stat-card::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: var(--card-color);
-    }
-    .stat-label {
-      font-size: 10px;
-      font-family: var(--mono);
-      color: var(--text3);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-    .stat-value {
-      font-size: 28px;
-      font-family: var(--mono);
-      font-weight: 700;
-      color: var(--card-color);
-      line-height: 1;
-    }
-    .stat-card.total  { --card-color: var(--accent); }
-    .stat-card.crit   { --card-color: var(--critical); }
-    .stat-card.high   { --card-color: var(--high); }
-    .stat-card.medium { --card-color: var(--medium); }
-    .stat-card.low    { --card-color: var(--low); }
+    /* main */
+    .main { flex:1; padding:0 24px 40px; max-width:1400px; margin:0 auto; width:100%; }
 
-    /* ── Filters ── */
-    .filters-bar {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 16px;
-    }
-    .filter-label {
-      font-size: 10px;
-      font-family: var(--mono);
-      color: var(--text3);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      margin-right: 4px;
-    }
-    .filter-btn {
-      font-family: var(--mono);
-      font-size: 11px;
-      padding: 4px 10px;
-      border-radius: 4px;
-      border: 1px solid var(--border2);
-      background: transparent;
-      color: var(--text2);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .filter-btn:hover { color: var(--text); border-color: #3a5068; }
-    .filter-btn.active { background: rgba(0,212,255,0.08); border-color: var(--accent); color: var(--accent); }
-    .filter-btn.sev-Critical.active { background: rgba(255,68,68,0.08); border-color: var(--critical); color: var(--critical); }
-    .filter-btn.sev-High.active { background: rgba(255,140,0,0.08); border-color: var(--high); color: var(--high); }
-    .filter-btn.sev-Medium.active { background: rgba(255,215,0,0.08); border-color: var(--medium); color: var(--medium); }
-    .filter-btn.sev-Low.active { background: rgba(68,204,136,0.08); border-color: var(--low); color: var(--low); }
+    /* stat + chart row */
+    .widgets-row { display:grid; grid-template-columns:repeat(5,1fr) 1.4fr 1.4fr; gap:12px; padding:20px 0 16px; }
+    .stat-card { background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:14px 16px; position:relative; overflow:hidden; cursor:default; transition:border-color .2s,transform .15s; }
+    .stat-card:hover { border-color:var(--border2); transform:translateY(-1px); }
+    .stat-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--c); }
+    .stat-label { font-size:10px; font-family:var(--mono); color:var(--text3); letter-spacing:.1em; text-transform:uppercase; margin-bottom:5px; }
+    .stat-value { font-size:30px; font-family:var(--mono); font-weight:700; color:var(--c); line-height:1; }
+    .stat-card.s-total { --c:var(--accent); }
+    .stat-card.s-crit  { --c:var(--critical); }
+    .stat-card.s-high  { --c:var(--high); }
+    .stat-card.s-med   { --c:var(--medium); }
+    .stat-card.s-low   { --c:var(--low); }
+    .chart-card { background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:14px 16px; display:flex; flex-direction:column; }
+    .chart-title { font-size:10px; font-family:var(--mono); color:var(--text3); letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px; }
+    .chart-wrap  { position:relative; flex:1; min-height:80px; }
 
-    .search-input {
-      font-family: var(--mono);
-      font-size: 12px;
-      background: var(--bg2);
-      border: 1px solid var(--border2);
-      border-radius: 4px;
-      color: var(--text);
-      padding: 4px 10px;
-      width: 220px;
-      margin-left: auto;
-    }
-    .search-input::placeholder { color: var(--text3); }
-    .search-input:focus { outline: none; border-color: var(--accent); }
+    /* lower widgets */
+    .lower-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+    .panel-card { background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:14px 16px; }
+    .panel-title { font-size:10px; font-family:var(--mono); color:var(--text3); letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; }
 
-    /* ── Advisory table ── */
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--bg2);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    thead { background: var(--bg3); }
-    th {
-      font-family: var(--mono);
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text3);
-      padding: 12px 14px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-    }
-    td {
-      padding: 11px 14px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
-    tr:last-child td { border-bottom: none; }
-    tr.adv-row {
-      cursor: pointer;
-      transition: background 0.1s;
-    }
-    tr.adv-row:hover { background: rgba(0,212,255,0.03); }
+    /* trending */
+    .cve-trend-row { display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); transition:background .1s; border-radius:3px; }
+    .cve-trend-row:last-child { border-bottom:none; }
+    .cve-trend-row:hover { background:rgba(0,212,255,.03); }
+    .cve-id { font-family:var(--mono); font-size:12px; color:var(--accent); }
+    .cve-count-badge { font-family:var(--mono); font-size:10px; background:rgba(0,212,255,.08); border:1px solid rgba(0,212,255,.15); color:var(--text2); padding:2px 7px; border-radius:3px; }
+    .cve-copy-btn { font-family:var(--mono); font-size:9px; color:var(--text3); background:none; border:1px solid var(--border); border-radius:3px; padding:2px 6px; cursor:pointer; transition:all .15s; margin-left:6px; }
+    .cve-copy-btn:hover { color:var(--accent); border-color:var(--accent); }
+    .cve-copy-btn.copied { color:var(--low); border-color:var(--low); }
+    .nvd-link { font-family:var(--mono); font-size:9px; color:var(--text3); text-decoration:none; border:1px solid var(--border); border-radius:3px; padding:2px 6px; transition:all .15s; }
+    .nvd-link:hover { color:var(--accent); border-color:var(--accent); }
 
-    /* severity badge */
-    .sev-badge {
-      display: inline-block;
-      font-family: var(--mono);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      padding: 2px 7px;
-      border-radius: 3px;
-      white-space: nowrap;
-    }
-    .sev-Critical { background: rgba(255,68,68,0.12);  color: var(--critical); border: 1px solid rgba(255,68,68,0.25); }
-    .sev-High     { background: rgba(255,140,0,0.10);  color: var(--high);     border: 1px solid rgba(255,140,0,0.25); }
-    .sev-Medium   { background: rgba(255,215,0,0.08);  color: var(--medium);   border: 1px solid rgba(255,215,0,0.20); }
-    .sev-Low      { background: rgba(68,204,136,0.08); color: var(--low);      border: 1px solid rgba(68,204,136,0.20); }
-    .sev-Unknown  { background: rgba(122,146,168,0.08); color: var(--unknown);  border: 1px solid rgba(122,146,168,0.2); }
+    /* vendor bars */
+    .vendor-bar-row { margin-bottom:9px; }
+    .vendor-bar-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
+    .vendor-name  { font-size:12px; color:var(--text); font-family:var(--mono); }
+    .vendor-count { font-size:11px; color:var(--text3); font-family:var(--mono); }
+    .bar-track { height:4px; background:var(--bg4); border-radius:2px; overflow:hidden; }
+    .bar-fill  { height:100%; background:var(--accent); border-radius:2px; transition:width .6s ease; }
 
-    .vendor-text {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--accent);
-      font-weight: 500;
-    }
-    .title-text {
-      color: var(--text);
-      font-size: 12px;
-      line-height: 1.4;
-      max-width: 380px;
-    }
-    .cve-pill {
-      display: inline-block;
-      font-family: var(--mono);
-      font-size: 9px;
-      background: rgba(0,212,255,0.06);
-      border: 1px solid rgba(0,212,255,0.15);
-      color: var(--text2);
-      padding: 1px 5px;
-      border-radius: 3px;
-      margin: 1px 2px 1px 0;
-    }
-    .sector-tag {
-      display: inline-block;
-      font-size: 10px;
-      font-family: var(--mono);
-      color: var(--text3);
-      margin-right: 4px;
-    }
-    .date-text {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text3);
-      white-space: nowrap;
-    }
-    .cvss-val {
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 700;
-    }
+    /* filters */
+    .filters-bar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:12px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:14px; }
+    .filter-label { font-size:10px; font-family:var(--mono); color:var(--text3); letter-spacing:.08em; text-transform:uppercase; margin-right:2px; }
+    .fbtn { font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:4px; border:1px solid var(--border); background:transparent; color:var(--text2); cursor:pointer; transition:all .15s; }
+    .fbtn:hover { color:var(--text); border-color:var(--border2); }
+    .fbtn.active { background:rgba(0,212,255,.08); border-color:var(--accent); color:var(--accent); }
+    .fbtn.fc.active { background:rgba(255,68,68,.08);  border-color:var(--critical); color:var(--critical); }
+    .fbtn.fh.active { background:rgba(255,140,0,.08);  border-color:var(--high);     color:var(--high); }
+    .fbtn.fm.active { background:rgba(255,215,0,.08);  border-color:var(--medium);   color:var(--medium); }
+    .search-wrap { margin-left:auto; position:relative; }
+    .search-wrap::before { content:'/ '; position:absolute; left:10px; top:50%; transform:translateY(-50%); font-family:var(--mono); font-size:11px; color:var(--text3); pointer-events:none; }
+    .search-input { font-family:var(--mono); font-size:12px; background:var(--bg2); border:1px solid var(--border2); border-radius:4px; color:var(--text); padding:5px 10px 5px 24px; width:240px; }
+    .search-input::placeholder { color:var(--text3); }
+    .search-input:focus { outline:none; border-color:var(--accent); }
+    .result-count { font-family:var(--mono); font-size:11px; color:var(--text3); margin-bottom:10px; }
+    .result-count span { color:var(--accent); }
 
-    /* ── Loading / empty states ── */
-    .loading-state, .empty-state {
-      text-align: center;
-      padding: 60px 24px;
-      font-family: var(--mono);
-      color: var(--text3);
-    }
-    .loading-state::before {
-      content: '[ fetching CISA advisories... ]';
-      display: block;
-      animation: blink 1s steps(1) infinite;
-    }
-    @keyframes blink { 50% { opacity: 0; } }
+    /* table */
+    .table-wrap { border:1px solid var(--border); border-radius:6px; overflow:hidden; background:var(--bg2); }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    thead { background:var(--bg3); }
+    th { font-family:var(--mono); font-size:10px; font-weight:500; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); padding:11px 14px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; cursor:pointer; user-select:none; transition:color .15s; }
+    th:hover { color:var(--text2); }
+    th .sort-arrow { margin-left:4px; opacity:.4; }
+    th.sorted .sort-arrow { opacity:1; color:var(--accent); }
+    td { padding:10px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    tr:last-child td { border-bottom:none; }
+    tr.adv-row { cursor:pointer; transition:background .1s; }
+    tr.adv-row:hover { background:rgba(0,212,255,.04); }
+    tr.adv-row.selected { background:rgba(0,212,255,.07); }
+    .sev-badge { display:inline-block; font-family:var(--mono); font-size:10px; font-weight:700; letter-spacing:.05em; padding:3px 7px; border-radius:3px; white-space:nowrap; }
+    .sev-Critical { background:rgba(255,68,68,.12);  color:var(--critical); border:1px solid rgba(255,68,68,.25); }
+    .sev-High     { background:rgba(255,140,0,.10);  color:var(--high);     border:1px solid rgba(255,140,0,.25); }
+    .sev-Medium   { background:rgba(255,215,0,.08);  color:var(--medium);   border:1px solid rgba(255,215,0,.20); }
+    .sev-Low      { background:rgba(68,204,136,.08); color:var(--low);      border:1px solid rgba(68,204,136,.20); }
+    .sev-Unknown  { background:rgba(90,112,128,.08); color:var(--unknown);  border:1px solid rgba(90,112,128,.20); }
+    .vendor-text { font-family:var(--mono); font-size:11px; color:var(--accent); font-weight:500; }
+    .title-text  { color:var(--text); font-size:12px; line-height:1.4; max-width:340px; }
+    .cve-pill    { display:inline-block; font-family:var(--mono); font-size:9px; background:rgba(0,212,255,.06); border:1px solid rgba(0,212,255,.15); color:var(--text2); padding:1px 5px; border-radius:3px; margin:1px 2px 1px 0; cursor:pointer; transition:all .15s; }
+    .cve-pill:hover { background:rgba(0,212,255,.14); color:var(--accent); }
+    .sector-tag  { font-size:10px; font-family:var(--mono); color:var(--text3); margin-right:4px; }
+    .date-text   { font-family:var(--mono); font-size:11px; color:var(--text3); white-space:nowrap; }
+    .cvss-val    { font-family:var(--mono); font-size:12px; font-weight:700; }
+    .empty-state { text-align:center; padding:50px; font-family:var(--mono); color:var(--text3); }
 
-    /* ── Footer ── */
-    footer {
-      margin-top: 40px;
-      padding: 20px 0;
-      border-top: 1px solid var(--border);
-      font-family: var(--mono);
-      font-size: 10px;
-      color: var(--text3);
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
+    /* detail panel */
+    .panel-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:300; opacity:0; pointer-events:none; transition:opacity .25s; }
+    .panel-overlay.open { opacity:1; pointer-events:all; }
+    .detail-panel { position:fixed; top:0; right:0; bottom:0; width:var(--panel-w); background:var(--bg2); border-left:1px solid var(--border2); z-index:400; transform:translateX(100%); transition:transform .28s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; overflow:hidden; }
+    .detail-panel.open { transform:translateX(0); }
+    .panel-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; gap:12px; background:var(--bg3); }
+    .panel-close  { font-family:var(--mono); font-size:13px; color:var(--text3); background:none; border:none; cursor:pointer; padding:2px 6px; transition:color .15s; flex-shrink:0; margin-top:2px; }
+    .panel-close:hover { color:var(--critical); }
+    .panel-body   { flex:1; overflow-y:auto; padding:20px; }
+    .panel-body::-webkit-scrollbar { width:4px; }
+    .panel-body::-webkit-scrollbar-track { background:var(--bg2); }
+    .panel-body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+    .panel-vendor { font-family:var(--mono); font-size:12px; color:var(--accent); margin-bottom:4px; }
+    .panel-title-text { font-size:15px; font-weight:500; color:var(--text); line-height:1.4; margin-bottom:14px; }
+    .panel-row    { display:flex; gap:8px; margin-bottom:8px; align-items:flex-start; }
+    .panel-key    { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:.08em; text-transform:uppercase; min-width:90px; padding-top:2px; }
+    .panel-val    { font-size:13px; color:var(--text); flex:1; }
+    .panel-section-title { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:.1em; text-transform:uppercase; margin:18px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+    .panel-cve-item { display:flex; align-items:center; justify-content:space-between; background:var(--bg3); border:1px solid var(--border); border-radius:4px; padding:8px 12px; margin-bottom:6px; }
+    .panel-cve-id   { font-family:var(--mono); font-size:12px; color:var(--accent); }
+    .panel-cve-actions { display:flex; gap:6px; }
+    .action-btn { font-family:var(--mono); font-size:10px; color:var(--text2); background:none; border:1px solid var(--border2); border-radius:3px; padding:3px 8px; cursor:pointer; transition:all .15s; text-decoration:none; display:inline-flex; align-items:center; }
+    .action-btn:hover { color:var(--accent); border-color:var(--accent); }
+    .action-btn.copied { color:var(--low); border-color:var(--low); }
+    .panel-summary { font-size:12px; color:var(--text2); line-height:1.7; background:var(--bg3); border:1px solid var(--border); border-radius:4px; padding:12px; }
+    .panel-footer { padding:14px 20px; border-top:1px solid var(--border); }
+    .panel-open-btn { display:block; font-family:var(--mono); font-size:11px; font-weight:500; background:rgba(0,212,255,.08); border:1px solid var(--accent); color:var(--accent); border-radius:4px; padding:9px; cursor:pointer; transition:background .15s; text-align:center; text-decoration:none; }
+    .panel-open-btn:hover { background:rgba(0,212,255,.16); }
 
-    /* ── Result count ── */
-    .result-count {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text3);
-      padding: 0 0 10px;
-    }
-    .result-count span { color: var(--accent); }
+    .kbd { display:inline-block; font-family:var(--mono); font-size:9px; color:var(--text3); background:var(--bg3); border:1px solid var(--border); border-radius:3px; padding:1px 5px; margin-left:4px; }
+
+    footer { padding:16px 24px; border-top:1px solid var(--border); font-family:var(--mono); font-size:10px; color:var(--text3); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; position:relative; z-index:1; }
   </style>
 </head>
 <body>
+<div class="shell">
 
 <header>
-  <div class="wrap header-inner">
-    <div class="logo">
-      <div class="logo-icon"></div>
-      <div>
-        <div class="logo-text">OT/ICS THREAT MONITOR</div>
-        <div class="logo-sub">CISA ICS Advisory Dashboard</div>
-      </div>
+  <div class="logo">
+    <div class="logo-icon"></div>
+    <div>
+      <div class="logo-name">OT/ICS THREAT MONITOR</div>
+      <div class="logo-sub">CISA ICS Advisory Dashboard</div>
     </div>
-    <div class="header-meta">
-      <span><span class="live-dot"></span>LIVE FEED</span>
-      <span id="last-updated">—</span>
-      <button class="refresh-btn" onclick="loadData()">↻ REFRESH</button>
-    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-pill"><span class="live-dot"></span>LIVE &nbsp;·&nbsp; <span id="last-updated" style="color:var(--text)">—</span></div>
+    <div class="countdown">next refresh <span id="countdown">—</span></div>
+    <button class="icon-btn" onclick="manualRefresh()">↻ REFRESH</button>
   </div>
 </header>
 
-<div class="wrap">
+<div class="main">
 
-  <!-- Stat cards -->
-  <div class="stats-row">
-    <div class="stat-card total">
-      <div class="stat-label">Total</div>
-      <div class="stat-value" id="stat-total">—</div>
+  <div class="widgets-row">
+    <div class="stat-card s-total"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>
+    <div class="stat-card s-crit" style="cursor:pointer" onclick="quickFilter('severity','Critical')"><div class="stat-label">Critical</div><div class="stat-value" id="s-critical">—</div></div>
+    <div class="stat-card s-high" style="cursor:pointer" onclick="quickFilter('severity','High')"><div class="stat-label">High</div><div class="stat-value" id="s-high">—</div></div>
+    <div class="stat-card s-med"  style="cursor:pointer" onclick="quickFilter('severity','Medium')"><div class="stat-label">Medium</div><div class="stat-value" id="s-med">—</div></div>
+    <div class="stat-card s-low"><div class="stat-label">Low / Unknown</div><div class="stat-value" id="s-low">—</div></div>
+    <div class="chart-card"><div class="chart-title">Severity split</div><div class="chart-wrap"><canvas id="donut-chart"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Top sectors</div><div class="chart-wrap"><canvas id="sector-chart"></canvas></div></div>
+  </div>
+
+  <div class="lower-row">
+    <div class="panel-card">
+      <div class="panel-title">Trending CVEs <span style="color:var(--text3);font-size:9px">— most repeated this feed</span></div>
+      <div id="trending-cves"></div>
     </div>
-    <div class="stat-card crit">
-      <div class="stat-label">Critical</div>
-      <div class="stat-value" id="stat-critical">—</div>
-    </div>
-    <div class="stat-card high">
-      <div class="stat-label">High</div>
-      <div class="stat-value" id="stat-high">—</div>
-    </div>
-    <div class="stat-card medium">
-      <div class="stat-label">Medium</div>
-      <div class="stat-value" id="stat-medium">—</div>
-    </div>
-    <div class="stat-card low">
-      <div class="stat-label">Low / Unknown</div>
-      <div class="stat-value" id="stat-low">—</div>
+    <div class="panel-card">
+      <div class="panel-title">Vendor advisory count</div>
+      <div id="vendor-bars"></div>
     </div>
   </div>
 
-  <!-- Filters -->
   <div class="filters-bar">
     <span class="filter-label">severity:</span>
-    <button class="filter-btn active" data-filter="severity" data-value="all" onclick="setFilter('severity','all',this)">ALL</button>
-    <button class="filter-btn sev-Critical" data-filter="severity" data-value="Critical" onclick="setFilter('severity','Critical',this)">CRITICAL</button>
-    <button class="filter-btn sev-High" data-filter="severity" data-value="High" onclick="setFilter('severity','High',this)">HIGH</button>
-    <button class="filter-btn sev-Medium" data-filter="severity" data-value="Medium" onclick="setFilter('severity','Medium',this)">MEDIUM</button>
-
+    <button class="fbtn active" data-f="severity" data-v="all"           onclick="setFilter('severity','all',this)">ALL</button>
+    <button class="fbtn fc"     data-f="severity" data-v="Critical"      onclick="setFilter('severity','Critical',this)">CRITICAL</button>
+    <button class="fbtn fh"     data-f="severity" data-v="High"          onclick="setFilter('severity','High',this)">HIGH</button>
+    <button class="fbtn fm"     data-f="severity" data-v="Medium"        onclick="setFilter('severity','Medium',this)">MEDIUM</button>
     <span class="filter-label" style="margin-left:12px">sector:</span>
-    <button class="filter-btn active" data-filter="sector" data-value="all" onclick="setFilter('sector','all',this)">ALL</button>
-    <button class="filter-btn" data-filter="sector" data-value="Energy" onclick="setFilter('sector','Energy',this)">ENERGY</button>
-    <button class="filter-btn" data-filter="sector" data-value="Manufacturing" onclick="setFilter('sector','Manufacturing',this)">MANUFACTURING</button>
-    <button class="filter-btn" data-filter="sector" data-value="Water" onclick="setFilter('sector','Water',this)">WATER</button>
-    <button class="filter-btn" data-filter="sector" data-value="Healthcare" onclick="setFilter('sector','Healthcare',this)">HEALTHCARE</button>
-
-    <input class="search-input" type="text" id="search-box" placeholder="search vendor, CVE, title..." oninput="renderTable()">
+    <button class="fbtn active" data-f="sector" data-v="all"             onclick="setFilter('sector','all',this)">ALL</button>
+    <button class="fbtn"        data-f="sector" data-v="Energy"          onclick="setFilter('sector','Energy',this)">ENERGY</button>
+    <button class="fbtn"        data-f="sector" data-v="Manufacturing"   onclick="setFilter('sector','Manufacturing',this)">MANUFACTURING</button>
+    <button class="fbtn"        data-f="sector" data-v="Water"           onclick="setFilter('sector','Water',this)">WATER</button>
+    <button class="fbtn"        data-f="sector" data-v="Healthcare"      onclick="setFilter('sector','Healthcare',this)">HEALTHCARE</button>
+    <button class="fbtn"        data-f="sector" data-v="Transportation"  onclick="setFilter('sector','Transportation',this)">TRANSPORT</button>
+    <div class="search-wrap">
+      <input class="search-input" id="search-box" type="text" placeholder="search vendor, CVE, title..." oninput="renderTable()">
+    </div>
   </div>
 
   <div class="result-count" id="result-count"></div>
 
-  <!-- Table -->
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
-          <th>Severity</th>
-          <th>CVSS</th>
-          <th>Vendor</th>
+          <th onclick="sortBy('severity')">Severity <span class="sort-arrow" id="arr-severity">↕</span></th>
+          <th onclick="sortBy('cvss_score')">CVSS <span class="sort-arrow" id="arr-cvss_score">↕</span></th>
+          <th onclick="sortBy('vendor')">Vendor <span class="sort-arrow" id="arr-vendor">↕</span></th>
           <th>Advisory Title</th>
           <th>CVEs</th>
           <th>Sector</th>
-          <th>Published</th>
+          <th onclick="sortBy('published')">Published <span class="sort-arrow" id="arr-published">↕</span></th>
         </tr>
       </thead>
-      <tbody id="advisory-tbody">
-        <tr><td colspan="7" class="loading-state"></td></tr>
+      <tbody id="tbody">
+        <tr><td colspan="7" class="empty-state">[ loading advisories... ]</td></tr>
       </tbody>
     </table>
   </div>
+</div>
 
-  <footer>
-    <span>Data source: CISA ICS-CERT Advisories (cisa.gov) — updates every 30 minutes</span>
-    <span>Built by Harsh Asolkar · SOC Analyst · Shieldworkz</span>
-  </footer>
+<footer>
+  <span>Source: CISA ICS-CERT · cisa.gov/ics-advisories · auto-refreshes every 30 min</span>
+  <span>Built by Harsh Asolkar · SOC Analyst · Shieldworkz &nbsp;|&nbsp; <span class="kbd">/</span> search · <span class="kbd">Esc</span> close panel</span>
+</footer>
+</div>
 
+<div class="panel-overlay" id="overlay" onclick="closePanel()"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="panel-header">
+    <div style="flex:1">
+      <div class="panel-vendor" id="dp-vendor"></div>
+      <div class="panel-title-text" id="dp-title"></div>
+      <span class="sev-badge" id="dp-sev"></span>
+      <span style="font-family:var(--mono);font-size:12px;margin-left:8px;" id="dp-cvss"></span>
+    </div>
+    <button class="panel-close" onclick="closePanel()">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="panel-row"><span class="panel-key">Published</span><span class="panel-val" id="dp-date"></span></div>
+    <div class="panel-row"><span class="panel-key">Sector</span><span class="panel-val" id="dp-sectors"></span></div>
+    <div class="panel-section-title">CVEs in this advisory</div>
+    <div id="dp-cves"></div>
+    <div class="panel-section-title">Summary</div>
+    <div class="panel-summary" id="dp-summary"></div>
+  </div>
+  <div class="panel-footer">
+    <a class="panel-open-btn" id="dp-link" href="#" target="_blank" rel="noopener">↗ Open full CISA advisory</a>
+  </div>
 </div>
 
 <script>
-  let allAdvisories = [];
-  let activeFilters = { severity: 'all', sector: 'all' };
+  let allAdvisories = [], filteredAdvisories = [];
+  let activeFilters = { severity:'all', sector:'all' };
+  let sortState = { key:'published', dir:-1 };
+  let donutChart = null, sectorChart = null;
+  let nextRefreshAt = null, countdownInterval = null;
 
   async function loadData() {
     try {
-      const res = await fetch('/api/advisories');
+      const res  = await fetch('/api/advisories');
       const data = await res.json();
-
       allAdvisories = data.advisories || [];
 
-      // Update stat cards
-      document.getElementById('stat-total').textContent    = data.stats.total ?? '—';
-      document.getElementById('stat-critical').textContent = data.stats.Critical ?? 0;
-      document.getElementById('stat-high').textContent     = data.stats.High ?? 0;
-      document.getElementById('stat-medium').textContent   = data.stats.Medium ?? 0;
-      document.getElementById('stat-low').textContent      = (data.stats.Low ?? 0) + (data.stats.Unknown ?? 0);
-      document.getElementById('last-updated').textContent  = data.last_updated || '—';
+      document.getElementById('s-total').textContent    = data.stats.total ?? '—';
+      document.getElementById('s-critical').textContent = data.stats.Critical ?? 0;
+      document.getElementById('s-high').textContent     = data.stats.High ?? 0;
+      document.getElementById('s-med').textContent      = data.stats.Medium ?? 0;
+      document.getElementById('s-low').textContent      = (data.stats.Low||0) + (data.stats.Unknown||0);
+      document.getElementById('last-updated').textContent = data.last_updated || '—';
 
+      renderCharts(data.stats);
+      renderTrending();
+      renderVendorBars(data.stats);
       renderTable();
-    } catch (err) {
-      document.getElementById('advisory-tbody').innerHTML =
-        `<tr><td colspan="7" class="empty-state">[ error loading advisories — ${err.message} ]</td></tr>`;
+
+      nextRefreshAt = Date.now() + 30 * 60 * 1000;
+      startCountdown();
+    } catch(e) {
+      document.getElementById('tbody').innerHTML =
+        `<tr><td colspan="7" class="empty-state">[ error: ${e.message} ]</td></tr>`;
     }
+  }
+
+  function manualRefresh() { loadData(); }
+
+  function startCountdown() {
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      const diff = Math.max(0, nextRefreshAt - Date.now());
+      const m = Math.floor(diff / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      document.getElementById('countdown').textContent =
+        String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+      if (diff === 0) loadData();
+    }, 1000);
+  }
+
+  function renderCharts(stats) {
+    if (donutChart) donutChart.destroy();
+    donutChart = new Chart(document.getElementById('donut-chart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Critical','High','Medium','Low/Unknown'],
+        datasets: [{ data: [stats.Critical||0, stats.High||0, stats.Medium||0, (stats.Low||0)+(stats.Unknown||0)],
+          backgroundColor: ['#ff4444','#ff8c00','#ffd700','#44cc88'],
+          borderColor: '#0d1117', borderWidth: 3 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, cutout:'68%',
+        plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${ctx.raw}` } } } }
+    });
+
+    if (sectorChart) sectorChart.destroy();
+    const topSectors = Object.entries(stats.sectors||{}).slice(0,5);
+    sectorChart = new Chart(document.getElementById('sector-chart'), {
+      type: 'bar',
+      data: {
+        labels: topSectors.map(([k]) => k.length>12 ? k.slice(0,12)+'…' : k),
+        datasets: [{ data: topSectors.map(([,v]) => v),
+          backgroundColor:'rgba(0,212,255,0.25)', borderColor:'#00d4ff', borderWidth:1, borderRadius:3 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, indexAxis:'y',
+        plugins:{ legend:{display:false} },
+        scales:{
+          x:{ ticks:{color:'#4a6070',font:{family:'JetBrains Mono',size:10}}, grid:{color:'#1e2a38'} },
+          y:{ ticks:{color:'#7a92a8',font:{family:'JetBrains Mono',size:10}}, grid:{display:false} }
+        }
+      }
+    });
+  }
+
+  function renderTrending() {
+    const cveMap = {};
+    allAdvisories.forEach(adv => (adv.cves||[]).forEach(c => { cveMap[c] = (cveMap[c]||0)+1; }));
+    const top = Object.entries(cveMap).sort((a,b) => b[1]-a[1]).slice(0,6);
+    const el = document.getElementById('trending-cves');
+    if (!top.length) { el.innerHTML='<div style="color:var(--text3);font-size:12px;font-family:var(--mono)">no data yet</div>'; return; }
+    el.innerHTML = top.map(([cve,count]) => `
+      <div class="cve-trend-row">
+        <span class="cve-id">${cve}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="cve-count-badge">${count} advis.</span>
+          <button class="cve-copy-btn" onclick="copyCVE(event,'${cve}',this)">copy</button>
+          <a class="nvd-link" href="https://nvd.nist.gov/vuln/detail/${cve}" target="_blank">NVD ↗</a>
+        </div>
+      </div>`).join('');
+  }
+
+  function renderVendorBars(stats) {
+    const vendors = Object.entries(stats.top_vendors||{}).slice(0,7);
+    if (!vendors.length) return;
+    const max = vendors[0][1];
+    document.getElementById('vendor-bars').innerHTML = vendors.map(([name,count]) => `
+      <div class="vendor-bar-row">
+        <div class="vendor-bar-top"><span class="vendor-name">${name}</span><span class="vendor-count">${count}</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.round((count/max)*100)}%"></div></div>
+      </div>`).join('');
   }
 
   function setFilter(type, value, btn) {
     activeFilters[type] = value;
-    // Update active button styling for this filter group
-    document.querySelectorAll(`[data-filter="${type}"]`).forEach(b => b.classList.remove('active'));
+    document.querySelectorAll(`[data-f="${type}"]`).forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    renderTable();
+  }
+
+  function quickFilter(type, value) {
+    const btn = document.querySelector(`[data-f="${type}"][data-v="${value}"]`);
+    if (btn) setFilter(type, value, btn);
+  }
+
+  function sortBy(key) {
+    if (sortState.key === key) sortState.dir *= -1;
+    else { sortState.key = key; sortState.dir = -1; }
+    document.querySelectorAll('.sort-arrow').forEach(a => a.textContent='↕');
+    document.querySelectorAll('th').forEach(t => t.classList.remove('sorted'));
+    const arr = document.getElementById(`arr-${key}`);
+    if (arr) { arr.textContent = sortState.dir===1?'↑':'↓'; arr.closest('th').classList.add('sorted'); }
     renderTable();
   }
 
   function renderTable() {
     const search = document.getElementById('search-box').value.toLowerCase();
-
-    const filtered = allAdvisories.filter(adv => {
-      const sevMatch = activeFilters.severity === 'all' || adv.severity === activeFilters.severity;
-      const secMatch = activeFilters.sector === 'all' || (adv.sectors || []).includes(activeFilters.sector);
-      const searchMatch = !search ||
+    filteredAdvisories = allAdvisories.filter(adv => {
+      const sevOk  = activeFilters.severity==='all' || adv.severity===activeFilters.severity;
+      const secOk  = activeFilters.sector==='all'   || (adv.sectors||[]).includes(activeFilters.sector);
+      const srchOk = !search ||
         adv.title.toLowerCase().includes(search) ||
         adv.vendor.toLowerCase().includes(search) ||
-        (adv.cves || []).some(c => c.toLowerCase().includes(search)) ||
-        (adv.sectors || []).some(s => s.toLowerCase().includes(search));
-      return sevMatch && secMatch && searchMatch;
+        (adv.cves||[]).some(c => c.toLowerCase().includes(search)) ||
+        (adv.sectors||[]).some(s => s.toLowerCase().includes(search));
+      return sevOk && secOk && srchOk;
+    });
+
+    filteredAdvisories.sort((a,b) => {
+      let av = a[sortState.key], bv = b[sortState.key];
+      if (sortState.key==='cvss_score') { av=av??-1; bv=bv??-1; }
+      if (sortState.key==='sectors')    { av=(av||[])[0]||''; bv=(bv||[])[0]||''; }
+      return av<bv ? -sortState.dir : av>bv ? sortState.dir : 0;
     });
 
     document.getElementById('result-count').innerHTML =
-      `showing <span>${filtered.length}</span> of <span>${allAdvisories.length}</span> advisories`;
+      `showing <span>${filteredAdvisories.length}</span> of <span>${allAdvisories.length}</span> advisories`;
 
-    if (filtered.length === 0) {
-      document.getElementById('advisory-tbody').innerHTML =
-        `<tr><td colspan="7" class="empty-state">[ no advisories match current filters ]</td></tr>`;
-      return;
+    if (!filteredAdvisories.length) {
+      document.getElementById('tbody').innerHTML =
+        `<tr><td colspan="7" class="empty-state">[ no results ]</td></tr>`; return;
     }
 
-    const rows = filtered.map(adv => {
-      const cvssColor = adv.cvss_score === null ? 'var(--text3)' :
-        adv.severity === 'Critical' ? 'var(--critical)' :
-        adv.severity === 'High'     ? 'var(--high)' :
-        adv.severity === 'Medium'   ? 'var(--medium)' : 'var(--low)';
+    const cvssColor = s => s==='Critical'?'var(--critical)':s==='High'?'var(--high)':s==='Medium'?'var(--medium)':s==='Low'?'var(--low)':'var(--unknown)';
 
-      const cvesHtml = adv.cves && adv.cves.length > 0
-        ? adv.cves.slice(0, 3).map(c => `<span class="cve-pill">${c}</span>`).join('') +
-          (adv.cves.length > 3 ? `<span class="cve-pill">+${adv.cves.length - 3}</span>` : '')
-        : '<span style="color:var(--text3);font-size:10px;font-family:var(--mono)">none listed</span>';
-
-      const sectorsHtml = (adv.sectors || []).slice(0, 2)
-        .map(s => `<span class="sector-tag">${s}</span>`).join('');
-
-      return `
-        <tr class="adv-row" onclick="window.open('${adv.link}', '_blank')">
-          <td><span class="sev-badge sev-${adv.severity}">${adv.severity.toUpperCase()}</span></td>
-          <td><span class="cvss-val" style="color:${cvssColor}">${adv.cvss_score !== null ? adv.cvss_score.toFixed(1) : '—'}</span></td>
-          <td><span class="vendor-text">${escHtml(adv.vendor)}</span></td>
-          <td><span class="title-text">${escHtml(adv.title)}</span></td>
-          <td>${cvesHtml}</td>
-          <td>${sectorsHtml}</td>
-          <td><span class="date-text">${adv.published}</span></td>
-        </tr>`;
-    });
-
-    document.getElementById('advisory-tbody').innerHTML = rows.join('');
+    document.getElementById('tbody').innerHTML = filteredAdvisories.map((adv,i) => {
+      const cvesHtml = (adv.cves||[]).slice(0,3).map(c =>
+        `<span class="cve-pill" onclick="event.stopPropagation();copyCVE(event,'${c}',this)">${c}</span>`
+      ).join('') + (adv.cves?.length>3 ? `<span class="cve-pill">+${adv.cves.length-3}</span>` : '');
+      const secHtml = (adv.sectors||[]).slice(0,2).map(s=>`<span class="sector-tag">${s}</span>`).join('');
+      const cvssHtml = adv.cvss_score!=null
+        ? `<span class="cvss-val" style="color:${cvssColor(adv.severity)}">${Number(adv.cvss_score).toFixed(1)}</span>`
+        : `<span style="color:var(--text3);font-family:var(--mono);font-size:12px">—</span>`;
+      return `<tr class="adv-row" onclick="openPanel(${i})">
+        <td><span class="sev-badge sev-${adv.severity}">${adv.severity.toUpperCase()}</span></td>
+        <td>${cvssHtml}</td>
+        <td><span class="vendor-text">${esc(adv.vendor)}</span></td>
+        <td><span class="title-text">${esc(adv.title)}</span></td>
+        <td>${cvesHtml||'<span style="color:var(--text3);font-size:10px;font-family:var(--mono)">—</span>'}</td>
+        <td>${secHtml}</td>
+        <td><span class="date-text">${adv.published}</span></td>
+      </tr>`;
+    }).join('');
   }
 
-  function escHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str || '';
-    return d.innerHTML;
+  function openPanel(idx) {
+    const adv = filteredAdvisories[idx];
+    if (!adv) return;
+    document.querySelectorAll('.adv-row').forEach((r,i) => r.classList.toggle('selected', i===idx));
+    document.getElementById('dp-vendor').textContent  = adv.vendor;
+    document.getElementById('dp-title').textContent   = adv.title;
+    document.getElementById('dp-date').textContent    = adv.published;
+    document.getElementById('dp-link').href           = adv.link;
+    document.getElementById('dp-summary').textContent = adv.summary_snippet || 'No summary available.';
+    document.getElementById('dp-sectors').textContent = (adv.sectors||[]).join(', ') || '—';
+    const sevEl = document.getElementById('dp-sev');
+    sevEl.textContent = adv.severity.toUpperCase(); sevEl.className = `sev-badge sev-${adv.severity}`;
+    document.getElementById('dp-cvss').textContent = adv.cvss_score!=null ? `CVSS ${Number(adv.cvss_score).toFixed(1)}` : '';
+    const cves = adv.cves||[];
+    document.getElementById('dp-cves').innerHTML = cves.length
+      ? cves.map(cve => `
+          <div class="panel-cve-item">
+            <span class="panel-cve-id">${cve}</span>
+            <div class="panel-cve-actions">
+              <button class="action-btn" onclick="copyCVE(event,'${cve}',this)">copy</button>
+              <a class="action-btn" href="https://nvd.nist.gov/vuln/detail/${cve}" target="_blank">NVD ↗</a>
+            </div>
+          </div>`).join('')
+      : '<div style="color:var(--text3);font-size:12px;font-family:var(--mono)">No CVEs listed.</div>';
+    document.getElementById('overlay').classList.add('open');
+    document.getElementById('detail-panel').classList.add('open');
   }
 
-  // Load on page open
+  function closePanel() {
+    document.getElementById('overlay').classList.remove('open');
+    document.getElementById('detail-panel').classList.remove('open');
+    document.querySelectorAll('.adv-row').forEach(r => r.classList.remove('selected'));
+  }
+
+  function copyCVE(e, cve, btn) {
+    e.stopPropagation();
+    navigator.clipboard.writeText(cve).catch(()=>{});
+    const orig = btn.textContent;
+    btn.textContent = 'copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent=orig; btn.classList.remove('copied'); }, 1500);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key==='Escape') closePanel();
+    if (e.key==='/' && document.activeElement.tagName!=='INPUT') {
+      e.preventDefault(); document.getElementById('search-box').focus();
+    }
+  });
+
+  function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
   loadData();
 </script>
-
 </body>
 </html>
