@@ -329,7 +329,33 @@
     }
   }
 
-  function manualRefresh() { loadData(); }
+ async function manualRefresh() {
+    const btn = document.querySelector('.icon-btn');
+    const orig = btn.textContent;
+    btn.textContent = '↻ FETCHING...';
+    btn.disabled = true;
+    try {
+        const res  = await fetch('/api/refresh');
+        const data = await res.json();
+        allAdvisories = data.advisories || [];
+        document.getElementById('s-total').textContent    = data.stats.total ?? '—';
+        document.getElementById('s-critical').textContent = data.stats.Critical ?? 0;
+        document.getElementById('s-high').textContent     = data.stats.High ?? 0;
+        document.getElementById('s-med').textContent      = data.stats.Medium ?? 0;
+        document.getElementById('s-low').textContent      = (data.stats.Low||0) + (data.stats.Unknown||0);
+        document.getElementById('last-updated').textContent = data.last_updated || '—';
+        renderCharts(data.stats);
+        renderTrending();
+        renderVendorBars(data.stats);
+        renderTable();
+        nextRefreshAt = Date.now() + 30 * 60 * 1000;
+    } catch(e) {
+        alert('Refresh failed: ' + e.message);
+    } finally {
+        btn.textContent = orig;
+        btn.disabled = false;
+    }
+}
 
   function startCountdown() {
     if (countdownInterval) clearInterval(countdownInterval);
