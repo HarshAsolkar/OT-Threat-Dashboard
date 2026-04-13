@@ -135,6 +135,28 @@ def extract_vendor(title):
     if first_word in skip_words:
         return "Multiple Vendors"
     return first_word
+    import html
+from html.parser import HTMLParser
+
+class _MLStripper(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.reset()
+        self.fed = []
+    def handle_data(self, d):
+        self.fed.append(d)
+    def get_data(self):
+        return ' '.join(self.fed)
+
+    def _clean_html(raw):
+    if not raw:
+        return 'No summary available.'
+    s = _MLStripper()
+    s.feed(raw)
+    text = s.get_data()
+    text = html.unescape(text)          # converts &amp; &lt; etc to real chars
+    text = ' '.join(text.split())       # collapse whitespace
+    return text[:500] + '...' if len(text) > 500 else text
 
 
 def parse_advisory(entry):
@@ -176,9 +198,9 @@ def parse_advisory(entry):
         "cves": cves,
         "cve_count": len(cves),
         "sectors": sectors,
-        "summary_snippet": summary[:300] + "..." if len(summary) > 300 else summary,
+        "summary_snippet": _clean_html(summary),
     }
-
+    
 def fetch_advisories(limit=50):
     """
     Main entry point. Fetches both CISA feeds, parses all entries,
