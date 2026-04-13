@@ -1,23 +1,37 @@
 import feedparser
 import requests
 import re
+import time
 from datetime import datetime
-def fetch_cvss_from_nvd(cve_id):
-    """
-    Query the NVD API for a CVE's CVSS score.
-    NVD = National Vulnerability Database — the authoritative source
-    for CVSS scores. Free, no API key needed for basic use.
-    Rate limit: 5 requests per 30 seconds without a key.
-    """
-    try:
-        url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve_id}"
-        response = requests.get(url, timeout=8)
-        if response.status_code != 200:
-            return None
-        data = response.json()
-        vulns = data.get("vulnerabilities", [])
-        if not vulns:
-            return None
+def fetch_cvss_from_nvd(cve_id, retries=3):
+    for attempt in range(retries):
+        try:
+            url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve_id}"
+            response = requests.get(url, timeout=10)
+
+            if response.status_code == 429:
+                # rate limited — wait and retry
+                time.sleep(8)
+                continue
+
+            if response.status_code != 200:
+                return None
+
+            data = response.json()
+            vulns = data.get("vulnerabilities", [])
+            if not vulns:
+                return None
+
+            metrics = vulns[0]["cve"].get("metrics", {})
+            for key in ["cvssMetricV31", "cvssMetricV30", "cvssMetricV2"]:
+                if key in metrics:
+                    return metrics[key][0]["cvssData"]["baseScore"]
+
+        except Exception:
+            time.sleep(3)
+            continue
+
+    return None
         metrics = vulns[0]["cve"].get("metrics", {})
         # Try CVSSv3.1 first, then v3.0, then v2
         for key in ["cvssMetricV31", "cvssMetricV30", "cvssMetricV2"]:
@@ -222,8 +236,9 @@ def fetch_advisories(limit=50):
                 print(f"[fetcher] Warning: feed parsing issue for {feed_url}")
 
             for entry in feed.entries:
-                parsed = parse_advisory(entry)
-                all_advisories.append(parsed)
+            parsed = parse_advisory(entry)
+            all_advisories.append(parsed)
+            time.sleep(0.7)   # stay under NVD's 5 req/30s limit
 
         except Exception as e:
             print(f"[fetcher] Error fetching {feed_url}: {e}")
