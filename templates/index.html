@@ -41,7 +41,6 @@
     }
     .shell { display: flex; flex-direction: column; min-height: 100vh; position: relative; z-index: 1; }
 
-    /* header */
     header {
       border-bottom: 1px solid var(--border); padding: 14px 24px;
       background: rgba(8,11,15,0.95); backdrop-filter: blur(8px);
@@ -62,10 +61,8 @@
     .icon-btn  { font-family:var(--mono); font-size:11px; color:var(--text2); background:none; border:1px solid var(--border); border-radius:4px; padding:5px 10px; cursor:pointer; transition:all .15s; }
     .icon-btn:hover { color:var(--accent); border-color:var(--accent); background:rgba(0,212,255,.05); }
 
-    /* main */
     .main { flex:1; padding:0 24px 40px; max-width:1400px; margin:0 auto; width:100%; }
 
-    /* stat + chart row */
     .widgets-row { display:grid; grid-template-columns:repeat(5,1fr) 1.4fr 1.4fr; gap:12px; padding:20px 0 16px; }
     .stat-card { background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:14px 16px; position:relative; overflow:hidden; cursor:default; transition:border-color .2s,transform .15s; }
     .stat-card:hover { border-color:var(--border2); transform:translateY(-1px); }
@@ -81,12 +78,10 @@
     .chart-title { font-size:10px; font-family:var(--mono); color:var(--text3); letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px; }
     .chart-wrap  { position:relative; flex:1; min-height:80px; }
 
-    /* lower widgets */
     .lower-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
     .panel-card { background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:14px 16px; }
     .panel-title { font-size:10px; font-family:var(--mono); color:var(--text3); letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; }
 
-    /* trending */
     .cve-trend-row { display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); transition:background .1s; border-radius:3px; }
     .cve-trend-row:last-child { border-bottom:none; }
     .cve-trend-row:hover { background:rgba(0,212,255,.03); }
@@ -98,7 +93,6 @@
     .nvd-link { font-family:var(--mono); font-size:9px; color:var(--text3); text-decoration:none; border:1px solid var(--border); border-radius:3px; padding:2px 6px; transition:all .15s; }
     .nvd-link:hover { color:var(--accent); border-color:var(--accent); }
 
-    /* vendor bars */
     .vendor-bar-row { margin-bottom:9px; }
     .vendor-bar-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
     .vendor-name  { font-size:12px; color:var(--text); font-family:var(--mono); }
@@ -106,7 +100,6 @@
     .bar-track { height:4px; background:var(--bg4); border-radius:2px; overflow:hidden; }
     .bar-fill  { height:100%; background:var(--accent); border-radius:2px; transition:width .6s ease; }
 
-    /* filters */
     .filters-bar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:12px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:14px; }
     .filter-label { font-size:10px; font-family:var(--mono); color:var(--text3); letter-spacing:.08em; text-transform:uppercase; margin-right:2px; }
     .fbtn { font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:4px; border:1px solid var(--border); background:transparent; color:var(--text2); cursor:pointer; transition:all .15s; }
@@ -123,7 +116,6 @@
     .result-count { font-family:var(--mono); font-size:11px; color:var(--text3); margin-bottom:10px; }
     .result-count span { color:var(--accent); }
 
-    /* table */
     .table-wrap { border:1px solid var(--border); border-radius:6px; overflow:hidden; background:var(--bg2); }
     table { width:100%; border-collapse:collapse; font-size:13px; }
     thead { background:var(--bg3); }
@@ -151,7 +143,6 @@
     .cvss-val    { font-family:var(--mono); font-size:12px; font-weight:700; }
     .empty-state { text-align:center; padding:50px; font-family:var(--mono); color:var(--text3); }
 
-    /* detail panel */
     .panel-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:300; opacity:0; pointer-events:none; transition:opacity .25s; }
     .panel-overlay.open { opacity:1; pointer-events:all; }
     .detail-panel { position:fixed; top:0; right:0; bottom:0; width:var(--panel-w); background:var(--bg2); border-left:1px solid var(--border2); z-index:400; transform:translateX(100%); transition:transform .28s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; overflow:hidden; }
@@ -175,7 +166,24 @@
     .action-btn { font-family:var(--mono); font-size:10px; color:var(--text2); background:none; border:1px solid var(--border2); border-radius:3px; padding:3px 8px; cursor:pointer; transition:all .15s; text-decoration:none; display:inline-flex; align-items:center; }
     .action-btn:hover { color:var(--accent); border-color:var(--accent); }
     .action-btn.copied { color:var(--low); border-color:var(--low); }
-    .panel-summary { font-size:12px; color:var(--text2); line-height:1.7; background:var(--bg3); border:1px solid var(--border); border-radius:4px; padding:12px; }
+
+    /* FIXED: summary box — scrollable, renders HTML cleanly, no raw tags */
+    .panel-summary {
+      font-size:12px; color:var(--text2); line-height:1.7;
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:4px; padding:12px;
+      max-height:260px; overflow-y:auto;
+    }
+    .panel-summary::-webkit-scrollbar { width:4px; }
+    .panel-summary::-webkit-scrollbar-track { background:var(--bg3); }
+    .panel-summary::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+    /* strip any leftover HTML tags that render as text */
+    .panel-summary p  { margin-bottom:8px; }
+    .panel-summary h2 { font-size:12px; color:var(--text); margin:10px 0 4px; font-family:var(--mono); }
+    .panel-summary a  { color:var(--accent); text-decoration:none; }
+    .panel-summary a:hover { text-decoration:underline; }
+    .panel-summary strong { color:var(--text); }
+
     .panel-footer { padding:14px 20px; border-top:1px solid var(--border); }
     .panel-open-btn { display:block; font-family:var(--mono); font-size:11px; font-weight:500; background:rgba(0,212,255,.08); border:1px solid var(--accent); color:var(--accent); border-radius:4px; padding:9px; cursor:pointer; transition:background .15s; text-align:center; text-decoration:none; }
     .panel-open-btn:hover { background:rgba(0,212,255,.16); }
@@ -199,7 +207,7 @@
   <div class="header-right">
     <div class="live-pill"><span class="live-dot"></span>LIVE &nbsp;·&nbsp; <span id="last-updated" style="color:var(--text)">—</span></div>
     <div class="countdown">next refresh <span id="countdown">—</span></div>
-    <button class="icon-btn" onclick="manualRefresh()">↻ REFRESH</button>
+    <button class="icon-btn" id="refresh-btn" onclick="manualRefresh()">↻ REFRESH</button>
   </div>
 </header>
 
@@ -303,6 +311,18 @@
   let donutChart = null, sectorChart = null;
   let nextRefreshAt = null, countdownInterval = null;
 
+  // ── FIX 1: strip HTML tags and decode entities for clean plain-text summary ──
+  function cleanSummary(raw) {
+    if (!raw) return 'No summary available.';
+    // Use a temporary div to parse HTML and extract plain text
+    const tmp = document.createElement('div');
+    tmp.innerHTML = raw;
+    // Remove any <script> or <style> nodes just in case
+    tmp.querySelectorAll('script,style').forEach(n => n.remove());
+    const text = tmp.textContent || tmp.innerText || '';
+    return text.trim() || 'No summary available.';
+  }
+
   async function loadData() {
     try {
       const res  = await fetch('/api/advisories');
@@ -329,33 +349,35 @@
     }
   }
 
- async function manualRefresh() {
-    const btn = document.querySelector('.icon-btn');
+  // ── FIX 2: refresh button — uses id instead of querySelector to avoid misfire ──
+  async function manualRefresh() {
+    const btn = document.getElementById('refresh-btn');
     const orig = btn.textContent;
     btn.textContent = '↻ FETCHING...';
     btn.disabled = true;
     try {
-        const res  = await fetch('/api/refresh');
-        const data = await res.json();
-        allAdvisories = data.advisories || [];
-        document.getElementById('s-total').textContent    = data.stats.total ?? '—';
-        document.getElementById('s-critical').textContent = data.stats.Critical ?? 0;
-        document.getElementById('s-high').textContent     = data.stats.High ?? 0;
-        document.getElementById('s-med').textContent      = data.stats.Medium ?? 0;
-        document.getElementById('s-low').textContent      = (data.stats.Low||0) + (data.stats.Unknown||0);
-        document.getElementById('last-updated').textContent = data.last_updated || '—';
-        renderCharts(data.stats);
-        renderTrending();
-        renderVendorBars(data.stats);
-        renderTable();
-        nextRefreshAt = Date.now() + 30 * 60 * 1000;
+      const res  = await fetch('/api/refresh');
+      const data = await res.json();
+      allAdvisories = data.advisories || [];
+      document.getElementById('s-total').textContent      = data.stats.total ?? '—';
+      document.getElementById('s-critical').textContent   = data.stats.Critical ?? 0;
+      document.getElementById('s-high').textContent       = data.stats.High ?? 0;
+      document.getElementById('s-med').textContent        = data.stats.Medium ?? 0;
+      document.getElementById('s-low').textContent        = (data.stats.Low||0) + (data.stats.Unknown||0);
+      document.getElementById('last-updated').textContent = data.last_updated || '—';
+      renderCharts(data.stats);
+      renderTrending();
+      renderVendorBars(data.stats);
+      renderTable();
+      nextRefreshAt = Date.now() + 30 * 60 * 1000;
+      startCountdown();
     } catch(e) {
-        alert('Refresh failed: ' + e.message);
+      alert('Refresh failed: ' + e.message);
     } finally {
-        btn.textContent = orig;
-        btn.disabled = false;
+      btn.textContent = orig;
+      btn.disabled = false;
     }
-}
+  }
 
   function startCountdown() {
     if (countdownInterval) clearInterval(countdownInterval);
@@ -510,11 +532,14 @@
     document.getElementById('dp-title').textContent   = adv.title;
     document.getElementById('dp-date').textContent    = adv.published;
     document.getElementById('dp-link').href           = adv.link;
-    document.getElementById('dp-summary').textContent = adv.summary_snippet || 'No summary available.';
     document.getElementById('dp-sectors').textContent = (adv.sectors||[]).join(', ') || '—';
     const sevEl = document.getElementById('dp-sev');
     sevEl.textContent = adv.severity.toUpperCase(); sevEl.className = `sev-badge sev-${adv.severity}`;
     document.getElementById('dp-cvss').textContent = adv.cvss_score!=null ? `CVSS ${Number(adv.cvss_score).toFixed(1)}` : '';
+
+    // ── FIX 3: summary — strip HTML, show clean readable text ──
+    document.getElementById('dp-summary').textContent = cleanSummary(adv.summary_snippet);
+
     const cves = adv.cves||[];
     document.getElementById('dp-cves').innerHTML = cves.length
       ? cves.map(cve => `
